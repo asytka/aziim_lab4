@@ -1,129 +1,84 @@
 ﻿#include <iostream>
+#include <unordered_set>
 #include <fstream>
-#include <string>
-#include <vector>
-#include <locale>
-#include <codecvt>
-#include <unordered_map>
 #include <Windows.h>
+#include <string> 
+#include <vector>
 
 using namespace std;
 
-const wstring UA_ALPHABET = L"АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ"
-L"абвгґдеєжзииіїйклмнопрстуфхцчшщьюя";
+bool error = false;
+const string alph = "абвгґдеєжзиіїйклмнопрстуфхцчшщьюяАБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ";
 
-unordered_map<wchar_t, int> charToIndex;
-vector<wchar_t> indexToChar;
+vector<int> codify(string text) {
+	vector<int> res;
+	for (const auto& c : text) {
+		int code = alph.find(c);
+		if (code != string::npos) {
+			res.push_back(code + 1);
+		}
+	}
 
-void initAlphabet() {
-    for (size_t i = 0; i < UA_ALPHABET.size(); ++i) {
-        charToIndex[UA_ALPHABET[i]] = static_cast<int>(i);
-        indexToChar.push_back(UA_ALPHABET[i]);
-    }
+	return res;
 }
 
-wstring readFile(const string& filename) {
-    wifstream file(filename);
-    file.imbue(locale(locale(), new codecvt_utf8<wchar_t>));
-    wstring content((istreambuf_iterator<wchar_t>(file)), istreambuf_iterator<wchar_t>());
-    return content;
+string uncodify(vector<int> code) {
+	string res;
+	for (const auto& i : code) {
+		res += alph[i - 1];
+	}
+
+	return res;
 }
 
-void writeFile(const string& filename, const wstring& content) {
-    wofstream file(filename);
-    file.imbue(locale(locale(), new codecvt_utf8<wchar_t>));
-    file << content;
+string encrypt(string cleartext, string key) {
+	vector<int> cleartext_code = codify(cleartext);
+	vector<int> key_code = codify(key);
+	vector<int> encrypted_code(cleartext_code.size());
+
+	if (key_code.empty()) {
+		cout << "Please enter correct key!\n";
+		error = true;
+		return " ";
+	}
+
+	for (int i = 0; i < cleartext_code.size(); i++) {
+		encrypted_code[i] = (cleartext_code[i] + key_code[i % key_code.size()] - 1) % alph.size() + 1;
+	}
+	return uncodify(encrypted_code);
 }
 
-wstring generateGamma(const wstring& key, size_t length) {
-    wstring gamma;
-    gamma.reserve(length);
-    for (size_t i = 0; i < length; ++i) {
-        gamma.push_back(key[i % key.size()]);
-    }
-    return gamma;
-}
+string decrypt(vector<int> enctext, vector<int> key) {
+	vector<int> decrypted_code(enctext.size());
 
-wstring process(const wstring& text, const wstring& gamma, bool encrypt) {
-    wstring result;
-    result.reserve(text.size());
-    int N = (int)UA_ALPHABET.size();
+	for (int i = 0; i < enctext.size(); i++) {
+		decrypted_code[i] = (enctext[i] - key[i % key.size()] + alph.size() - 1) % alph.size() + 1;
+	}
 
-    for (size_t i = 0; i < text.size(); ++i) {
-        auto itText = charToIndex.find(text[i]);
-        auto itGamma = charToIndex.find(gamma[i]);
-
-        if (itText == charToIndex.end() || itGamma == charToIndex.end()) {
-            result.push_back(text[i]);
-            continue;
-        }
-
-        int M = itText->second;
-        int G = itGamma->second;
-        int C;
-
-        if (encrypt) {
-            C = (M + G) % N;
-        }
-        else {
-            C = (M - G + N) % N;
-        }
-
-        result.push_back(indexToChar[C]);
-    }
-
-    return result;
+	return uncodify(decrypted_code);
 }
 
 int main() {
-    locale::global(locale(""));
-    initAlphabet();
-    setlocale(LC_CTYPE, "ukr");
-    SetConsoleOutputCP(1251);
-    SetConsoleCP(1251);
 
-    int choice;
-    wstring key;
-    string inputFile = "input.txt";
-    string encryptedFile = "encrypted.txt";
-    string decryptedFile = "decrypted.txt";
+	SetConsoleCP(1251);
+	SetConsoleOutputCP(1251);
+	ifstream inputFile("input.txt");
+	ofstream encFile("encrypted.txt");
+	ofstream decFile("decryped.txt");
+	inputFile.imbue(locale("uk_UA.utf8"));
+	encFile.imbue(locale("uk_UA.utf8"));
+	decFile.imbue(locale("uk_UA.utf8"));
+	string key;
+	cout << "Please enter an encrpytion key: ";
+	getline(cin, key);
 
-    while (true) {
-        cout << "\n==== Шифр модульного гамування ====\n";
-        cout << "1. Зашифрувати файл\n";
-        cout << "2. Розшифрувати файл\n";
-        cout << "0. Вийти\n";
-        cout << "Ваш вибір: ";
-        cin >> choice;
-        cin.ignore();
-
-        if (choice == 0) break;
-
-        cout << "Введіть гамму (парольну фразу): ";
-        getline(wcin, key);
-        if (key.empty()) {
-            cout << "Помилка! Введіть не порожній ключ!\n";
-            continue;
-        }
-        if (choice == 1) {
-            wstring text = readFile(inputFile);
-            wstring gamma = generateGamma(key, text.size());
-            wstring encrypted = process(text, gamma, true);
-            writeFile(encryptedFile, encrypted);
-            cout << "Файл зашифровано у " << encryptedFile.c_str() << endl;
-        }
-        else if (choice == 2) {
-            wstring text = readFile(encryptedFile);
-            wstring gamma = generateGamma(key, text.size());
-            wstring decrypted = process(text, gamma, false);
-            writeFile(decryptedFile, decrypted);
-            cout << "Файл розшифровано у " << decryptedFile.c_str() << endl;
-        }
-        else {
-            cout << "Нерозпізнана команда. Спробуйте ще раз:\n";
-            continue;
-        }
-    }
-
-    return 0;
+	string input;
+	getline(inputFile, input);
+	string encrypted = encrypt(input, key);
+	if (error) return 1;
+	encFile << encrypted;
+	string decrypted = decrypt(codify(encrypted), codify(key));
+ 	decFile << decrypted;
+	cout << "Encryption and decryption of the file is done!\n";
+	return 0;
 }
