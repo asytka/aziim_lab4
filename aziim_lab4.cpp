@@ -1,7 +1,6 @@
 ﻿#include <iostream>
 #include <unordered_set>
 #include <fstream>
-#include <Windows.h>
 #include <string> 
 #include <vector>
 
@@ -18,7 +17,6 @@ vector<int> codify(string text) {
 			res.push_back(code + 1);
 		}
 	}
-
 	return res;
 }
 
@@ -27,7 +25,6 @@ string uncodify(vector<int> code) {
 	for (const auto& i : code) {
 		res += alph[i - 1];
 	}
-
 	return res;
 }
 
@@ -59,9 +56,6 @@ string decrypt(vector<int> enctext, vector<int> key) {
 }
 
 int main() {
-
-	SetConsoleCP(1251);
-	SetConsoleOutputCP(1251);
 	ifstream inputFile("input.txt");
 	ofstream encFile("encrypted.txt");
 	ofstream decFile("decryped.txt");
